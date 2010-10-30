@@ -1,0 +1,82 @@
+*** operations.orig	2009-10-18 06:14:43.000000000 +0300
+--- operations.pl	2010-01-21 22:37:52.000000000 +0200
+*************** $Fact=$F{act};
+*** 26,31 ****
+--- 26,32 ----
+   'cards_move_agree'	=> \&sub_zero,	# подтверждение передачи карточек принимающим админом
+   'cards_move_dont_agree' => \&sub_zero,	# отказ от приема карточек
+   'cards_set_good'	=> \&sub_zero,	# перевод карточек в состояние "можно активировать без продажи"
++  'cards_export_cvs'	=> \&sub_zero,	# экспорт карточек в CVS 
+  );
+  
+  &Exit unless defined $subs{$Fact};
+*************** sub show_cid
+*** 337,345 ****
+   my ($start_cid,$len,$money,$alive)=@_;
+   my $end_cid=$start_cid+$len-1;
+   my $comment=$alives{$alive}? $alives{$alive}.'. '.&ahref("$scrpt&act=help&theme=cards_$alive",'[?]') : 'активированы';
+!  return &RRow('*','llllcc',$money,"$start_cid .. $end_cid",$len,$comment,
+       $alive=~/^(good|stock|bad)$/? &div('nav3',&ahref("$scrpt&act=cards_move_sel&n1=$start_cid&n2=$end_cid",'Да')) : '&nbsp;',
+!      $PR{111} && $alive eq 'stock'? &div('nav3',&ahref("$scrpt&act=cards_set_good&n1=$start_cid&n2=$end_cid",'Да')) : '&nbsp;');
+  }
+  
+  
+--- 338,347 ----
+   my ($start_cid,$len,$money,$alive)=@_;
+   my $end_cid=$start_cid+$len-1;
+   my $comment=$alives{$alive}? $alives{$alive}.'. '.&ahref("$scrpt&act=help&theme=cards_$alive",'[?]') : 'активированы';
+!  return &RRow('*','llllccc',$money,"$start_cid .. $end_cid",$len,$comment,
+       $alive=~/^(good|stock|bad)$/? &div('nav3',&ahref("$scrpt&act=cards_move_sel&n1=$start_cid&n2=$end_cid",'Да')) : '&nbsp;',
+!      $PR{111} && $alive eq 'stock'? &div('nav3',&ahref("$scrpt&act=cards_set_good&n1=$start_cid&n2=$end_cid",'Да')) : '&nbsp;',
+!      $PR{111} && $alive eq 'good'? &div('nav3',&ahref("$scrpt&act=cards_export_cvs&n1=$start_cid&n2=$end_cid",'Сохранить')) : '&nbsp;');
+  }
+  
+  
+*************** sub cards_oper
+*** 377,383 ****
+       
+   $out.=&show_cid($start_cid,$i,$money,$last_alive) if $start_cid;
+   $out=&MessX('Карточки пополнения счета, которые числятся за вами:').'<br>'.
+!      &Table('tbg3',&RRow('head','cccccc',"Номинал, $gr",'Диапазон','Штук','Комментарий','Передать',$PR{111}?'Разрешить<br>активацию':'&nbsp;').$out) if $out;
+  
+   $OUT.=&div('message',$out.
+     &form('!'=>1,'act'=>'cards_move_sel','<br>'.
+--- 379,385 ----
+       
+   $out.=&show_cid($start_cid,$i,$money,$last_alive) if $start_cid;
+   $out=&MessX('Карточки пополнения счета, которые числятся за вами:').'<br>'.
+!      &Table('tbg3',&RRow('head','ccccccc',"Номинал, $gr",'Диапазон','Штук','Комментарий','Передать',$PR{111}?'Разрешить<br>активацию':'&nbsp;','Экспорт в CSV').$out) if $out;
+  
+   $OUT.=&div('message',$out.
+     &form('!'=>1,'act'=>'cards_move_sel','<br>'.
+*************** sub cards_set_good
+*** 562,567 ****
+--- 564,591 ----
+   &OkMess("Карточки в количестве $rows штук диапазона $n1 .. $n2 переведены в состояние $s.");
+  }
+  
++ sub cards_export_cvs
++ {
++  $n1=int $F{n1};
++  $n2=int $F{n2};
++  $n2||=$n1;
++  &Error("Начальный номер карточки $n1 больше конечного $n2. Никакие изменения не произведены.") if $n1>$n2;
++  $body='';
++  #Запрашиваем идентификатор, активационный код, стоимость карточки, уже отформатированную дату создания и уже отформатированную дату конечного срока активации 
++  $sth=&sql($dbh,"SELECT `cid` , `cod` , ROUND( ( `money` ) ) as money , FROM_UNIXTIME( `stime` , '%d.%m.%Y' ) as stime, FROM_UNIXTIME( `etime` , '%d.%m.%Y' ) as etime FROM `cards` WHERE r='$Admin_id' AND alive='good' AND cid>=$n1 AND cid<=$n2");
++  while ($p=$sth->fetchrow_hashref)
++   {
++    #генерируем ряды CSV для последующего экспорта например в MS Access
++    $body.="\"$p->{cid}\";\"$p->{cod}\";\"$p->{money}\";\"$p->{stime}\";\"$p->{etime}\"\n";
++   }
++   #выводим данные в браузер на сохранение
++   $OUT="Content-Type: application/octet-stream\n".
++   "Content-Disposition: attachment; filename=nocards.txt\n\n".
++   "$body";
++  print $OUT;
++  exit;
++ }
++ 
+  # ========================
+  sub help
+  {
