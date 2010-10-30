@@ -63,7 +63,7 @@
 +  &Error("Ќачальный номер карточки $n1 больше конечного $n2. Ќикакие изменени€ не произведены.") if $n1>$n2;
 +  $body='';
 +  #«апрашиваем идентификатор, активационный код, стоимость карточки, уже отформатированную дату создани€ и уже отформатированную дату конечного срока активации 
-+  $sth=&sql($dbh,"SELECT `cid` , `cod` , ROUND( ( `money` ) ) as money , FROM_UNIXTIME( `stime` , '%d.%m.%Y' ) as stime, FROM_UNIXTIME( `etime` , '%d.%m.%Y' ) as etime FROM `cards` WHERE r='$Admin_id' AND alive='good' AND cid>=$n1 AND cid<=$n2");
++  $sth=&sql($dbh,"SELECT `cid` , `cod` , `money` , FROM_UNIXTIME( `stime` , '%d.%m.%Y' ) as stime, FROM_UNIXTIME( `etime` , '%d.%m.%Y' ) as etime FROM `cards` WHERE r='$Admin_id' AND alive='good' AND cid>=$n1 AND cid<=$n2");
 +  while ($p=$sth->fetchrow_hashref)
 +   {
 +    #генерируем р€ды CSV дл€ последующего экспорта например в MS Access
