@@ -62,16 +62,16 @@ sub PRMP_main
  #проверка на максимальный платёж
  &Error('Сумма обещанного платежа указана больше максимально допустимой (' . $PRMP_mxp . ').',$EOUT) if $PRMP_post>$PRMP_mxp;
  #проверка если введённая сумма + баланс всё равно меньше нуля - вывести сообщение пользователю
- &Error('Этой суммы недостаточно, чтобы продолжить пользоваться услугами! У вас очень большой отрицательный счёт. Погасите задолженность!') if $PRMP_post + $U{$Mid}{final_balance} <= 0;
+ &Error('Этой суммы недостаточно, чтобы продолжить пользоваться услугами! У вас очень большой отрицательный счёт. Погасите задолженность!') if ($PRMP_post - $PRMP_price + $U{$Mid}{final_balance}) < 0;
 
  #всё нормально
 
  #если указано списывать сумму за услугу
  if ($PRMP_price > 0)
    {
-    #списываем сумму в размере PRMP_price за услугу Обещанный платеж
+    #списываем сумму в размере PRMP_price за услуги Обещанный платеж
     $sql="INSERT INTO pays (mid,cash,type,bonus,category,admin_id,admin_ip,reason,coment,time) ".
-         "VALUES($Mid,$PRMP_price,10,'',600,$Adm{id},INET_ATON('$RealIp'),'','За услугу Обещанный платеж',$t)";
+         "VALUES($Mid,-$PRMP_price,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'','За услугу Обещанный платеж',$t)";
     $rows=&sql_do($dbh,$sql);
     &ToLog("! mid $Mid использовал услугу Обещанный платеж (запись списания) $PRMP_post $gr, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
    }
@@ -80,10 +80,9 @@ sub PRMP_main
  #создаём переменную времени окончания платежа (текущее время + количество суток из конфига)
  #если нужно удвоить, утроить срок - цифры ниже. множте, плюсуйте
  $time=$t+$PRMP_ld*3600*24;
- #отнимаем от суммы платежа стоимость услуги, т.к. сняли за услугу ранее
- $PRMP_posttmp = $PRMP_post - $PRMP_price;
+
  $sql="INSERT INTO pays (mid,cash,type,bonus,category,admin_id,admin_ip,reason,coment,time) ".
-      "VALUES($Mid,$PRMP_posttmp,20,'y',1000,$Adm{id},INET_ATON('$RealIp'),'','Обещанный платеж',$time)";
+      "VALUES($Mid,$PRMP_post,20,'y',1000,$Adm{id},INET_ATON('$RealIp'),'','Обещанный платеж',$time)";
  $rows=&sql_do($dbh,$sql);
  &ToLog("! mid $Mid использовал услугу Обещанный платеж $PRMP_post $gr, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
 
@@ -93,8 +92,11 @@ sub PRMP_main
  $rows=&sql_do($dbh,$sql);
  &ToLog("! mid $Mid использовал услугу Обещанный платеж (блокирующая запись) $PRMP_post $gr, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
 
+ #отнимаем от суммы платежа стоимость услуги, т.к. сняли за услугу ранее
+ $PRMP_posttmp = $PRMP_post - $PRMP_price;
+
  #начинаем формировать внесение в таблицу платежей
- $rows=&sql_do($dbh,"UPDATE users SET balance=balance+($PRMP_post) WHERE id=$Mid LIMIT 1");
+ $rows=&sql_do($dbh,"UPDATE users SET balance=balance+$PRMP_posttmp WHERE id=$Mid LIMIT 1");
  if ($rows<1)
    {
     &ToLog("! mid $Mid использовал услугу Обещанный платеж $PRMP_post $gr, но после внесения платежа в таблицу платежей произошла ошибка изменения баланса клиента");
