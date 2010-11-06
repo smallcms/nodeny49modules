@@ -83,17 +83,9 @@ sub PRMP_main
  if ($PRMP_price > 0)
    {
     #списываем сумму в размере PRMP_price за услуги Обещанный платеж
-    $sql="INSERT INTO pays 
-    			mid=".$Mid.",
-    			cash=".(-$PRMP_price).",
-    			type=10,
-    			bonus='y',
-    			category=105,
-    			admin_id=".$Adm{id}.",
-    			admin_ip=INET_ATON('".$RealIp."'),
-    			reason='',
-    			coment='За услугу Обещанный платеж',
-    			time=".$t;
+    $sql="INSERT INTO pays (mid,cash,type,bonus,category,admin_id,admin_ip,reason,coment,time) ".
+         "VALUES($Mid,-$PRMP_price,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'','За услугу Обещанный платеж',$t)";
+
     $rows=&sql_do($dbh,$sql);
     &ToLog("! mid $Mid использовал услугу Обещанный платеж (запись списания) $PRMP_post $gr, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
    }
