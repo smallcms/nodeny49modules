@@ -7,6 +7,10 @@
 # --------------------------------------------- 
 $VER=49.32;
 
+#TODO
+#SELECT * FROM `pays` WHERE `cash`>0 AND `time`>UNIX_TIMESTAMP( SUBDATE( NOW( ) , 30)) AND `type`='10'
+#не списывать, если на счету был норм плюсовой баланс
+
 sub PRMP_main
 {
 
@@ -38,10 +42,10 @@ sub PRMP_main
  } 
  &Error('¬ы не можете воспользоватьс€ данной услугой. ќбратитесь к системному администратору') if $PRMP_DenyToUseMod == 1;
  
- # ѕроверим, не сильно ли большой у пользовател€ долг?
+ #проверим, не сильно ли большой у пользовател€ долг?
  $PRMP_balanceLimit = ($PRMP_overdebt == 1 ) ? $pm->{limit_balance} : 0;
  &Error('¬ы не можете воспользоватьс€ данной услугой по причине очень большой задолженности. ќбратитесь к системному администратору') if($U{$Mid}{final_balance} - $PRMP_price + $PRMP_mxp < $PRMP_balanceLimit); 
- 
+
  #проверим количество использований услуги за последние PRMP_ld дней
  $PRMP_sql1=&sql_select_line($dbh,"SELECT COUNT(*) FROM pays WHERE `mid`=$Mid AND `type` =50 AND `category` =900 AND `time` > UNIX_TIMESTAMP( SUBDATE( NOW( ) , $PRMP_ld ) )");
  &Error('проблема с Ѕƒ.') unless $PRMP_sql1;
@@ -57,6 +61,16 @@ sub PRMP_main
  $PRMP_count2=$PRMP_sql2->{'COUNT(*)'};
  #выводим сообщение пользователю, который вконец потер€л совесть
  &Error('¬ы уже использовали услугу &quot;ќбещанный платеж&quot; в этом мес€це максимально допустимое количество раз.') if $PRMP_count2 >= $PRMP_mxmo && $PRMP_mxmo != 0;
+
+ #проверим когда был сделан последний платеж. если более, чем дней назад - запрещаем услугу
+ if ($PRMP_oldpay) {
+   $PRMP_sql3=&sql_select_line($dbh,"SELECT COUNT(*) FROM `pays` WHERE `mid`=$Mid AND `cash`>0 AND `time`>UNIX_TIMESTAMP( SUBDATE( NOW( ) , $PRMP_oldpay)) AND `type`='10'");
+   &Error('проблема с Ѕƒ.') unless $PRMP_sql3;
+   #считаем количество платажей за период
+   $PRMP_count3=$PRMP_sql3->{'COUNT(*)'};
+   #выводим сообщение пользователю, который вконец потер€л совесть
+   &Error('¬ы пополн€ли ¬аш счЄт более, чем ' . $PRMP_oldpay . ' ' .&PP_days($PRMP_ld). ' назад. ”слуга &quot;ќбещанный платеж&quot; дл€ ¬ас отключена.') if $PRMP_oldpay !=0 && $PRMP_count3 < 1;
+ }
 
  #если из браузера клиента не пришла сумма
  unless (defined $F{prmpay})
