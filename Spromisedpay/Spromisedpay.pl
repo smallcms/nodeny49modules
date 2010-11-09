@@ -7,10 +7,6 @@
 # --------------------------------------------- 
 $VER=49.32;
 
-#TODO
-#SELECT * FROM `pays` WHERE `cash`>0 AND `time`>UNIX_TIMESTAMP( SUBDATE( NOW( ) , 30)) AND `type`='10'
-#не списывать, если на счету был норм плюсовой баланс
-
 sub PRMP_main
 {
 
