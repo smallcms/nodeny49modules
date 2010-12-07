@@ -10,7 +10,7 @@ sub RMTR_main
 {
 
 
- &Error($V ? 'Модуль не сконфигурирован в настройках биллинговой системы.' : 'Раздел недоступен.',$EOUT) if !$RMTR_price && !$RMTR_mnbap && !$RMTR_minsrc && !$RMTR_minsrc && !$RMTR_maxsrc && !$RMTR_maxdst && !$RMTR_ntrvlsrc && !$RMTR_ntrvldst && !$RMTR_dopid && !$RMTR_overdebt && !$RMTR_oldpay;
+ &Error($V ? 'Модуль не сконфигурирован в настройках биллинговой системы.' : 'Раздел недоступен.',$EOUT) if !$RMTR_price && !$RMTR_priceprc && !$RMTR_mnbap && !$RMTR_minsrc && !$RMTR_minsrc && !$RMTR_maxsrc && !$RMTR_maxdst && !$RMTR_ntrvlsrc && !$RMTR_ntrvldst && !$RMTR_dopid && !$RMTR_overdebt && !$RMTR_oldpay;
  &Error($V ? 'Модуль отключен в настройках биллинговой системы.' : 'Раздел недоступен.',$EOUT) if !$RMTR_enable;
 
  $RMTR_post1= $F{rmtrpk};
@@ -23,7 +23,8 @@ sub RMTR_main
              &bold('Введите сумму, которую желаете перевести получателю (' .($RMTR_minsrc+$RMTR_price).'...'.($RMTR_maxsrc+$RMTR_price).' '.$gr.'): ').
              &input_t('rmtray',$RMTR_post2,20,18,' autocomplete="off"');
  #добавим писюльку что это вся-таки платная услуга!
- $FormText .= $br2.'Дополнительно за использование услуги с платежа на стороне получателя будет списана сумма в размере '.&bold($RMTR_price.' '.$gr) if $RMTR_price > 0;
+ $FormText .= $br2.'Дополнительно, за использование услуги, с суммы платежа будет удержана комиссия в размере '.&bold($RMTR_price.' '.$gr) if $RMTR_price > 0;
+ $FormText .= $br2.'Дополнительно, за использование услуги, с суммы платежа будет удержана комиссия в размере '.&bold($RMTR_priceprc.'%.') if $RMTR_priceprc > 0;
 
  $form=&div('cntr',
    &form('!'=>1,
@@ -74,6 +75,9 @@ sub RMTR_main
 
  #ищем учётную запись по персональному платежному коду
  $RMTR_post1id=substr($RMTR_post1,0,-1);
+
+ #защита от переводов самому себе
+ &Error('Вы указали собственный персональный платежный код получателя. Самому себе переводы запрещены.') if $RMTR_post1id == $Mid;
 
  #получаем учётную запись по персональному платежному коду
  $RMTR_sql1=&sql_select_line($dbh,"SELECT COUNT(*) FROM `users` WHERE `id`=$RMTR_post1id AND `mid`=0");
@@ -130,6 +134,16 @@ sub RMTR_main
  #отнимаем от суммы перевода стоимость услуги
  $RMTR_post2_tmp = $RMTR_post2 - $RMTR_price;
 
+ #если нужно снять и проценты
+ if ($RMTR_priceprc > 0)
+   {
+     #если отнимали _и_ фиксированную стоимость, то естественно считаем процент от остаточной суммы
+     $RMTR_prc_tmp = $RMTR_post2_tmp * $RMTR_priceprc / 100;
+
+     #отнимаем от суммы перевода процент от переводимой суммы
+     $RMTR_post2_tmp = $RMTR_post2_tmp - $RMTR_prc_tmp;
+   }
+
  #если указано списывать сумму за услугу
  if ($RMTR_price > 0)
    {
@@ -138,10 +152,21 @@ sub RMTR_main
          "VALUES($RMTR_post1id,-$RMTR_price,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
 
      $rows=&sql_do($dbh,$sql);
-     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись стоимости) $RMTR_price $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
+     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_price $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
    }
 
- #зачисляем сумму в размере RMTR_post2-RMTR_price за услугу Поделиться балансом клиенту с id=$RMTR_post1id
+ #если указано списывать проценты от суммы за услугу
+ if ($RMTR_priceprc > 0)
+   {
+     #списываем сумму в размере RMTR_priceprc за услугу Поделиться балансом
+     $sql="INSERT INTO pays (mid,cash,type,bonus,category,admin_id,admin_ip,reason,coment,time) ".
+         "VALUES($RMTR_post1id,-$RMTR_prc_tmp,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
+
+     $rows=&sql_do($dbh,$sql);
+     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_prc_tmp $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
+   }
+
+ #зачисляем сумму в размере RMTR_post2 за услугу Поделиться балансом клиенту с id=RMTR_post1id
  $sql="INSERT INTO pays (mid,cash,type,bonus,category,admin_id,admin_ip,reason,coment,time) ".
       "VALUES($RMTR_post1id,$RMTR_post2,10,'',600,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
 
