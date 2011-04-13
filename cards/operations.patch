@@ -6,7 +6,7 @@
    'cards_move_agree'	=> \&sub_zero,	# подтверждение передачи карточек принимающим админом
    'cards_move_dont_agree' => \&sub_zero,	# отказ от приема карточек
    'cards_set_good'	=> \&sub_zero,	# перевод карточек в состо€ние "можно активировать без продажи"
-+  'cards_export_cvs'	=> \&sub_zero,	# экспорт карточек в CVS 
++  'cards_export_csv'	=> \&sub_zero,	# экспорт карточек в CSV 
   );
   
   &Exit unless defined $subs{$Fact};
@@ -28,7 +28,7 @@
 !  return &RRow('*','llllccc',$money,"$start_cid .. $end_cid",$len,$comment,
        $alive=~/^(good|stock|bad)$/? &div('nav3',&ahref("$scrpt&act=cards_move_sel&n1=$start_cid&n2=$end_cid",'ƒа')) : '&nbsp;',
 !      $PR{111} && $alive eq 'stock'? &div('nav3',&ahref("$scrpt&act=cards_set_good&n1=$start_cid&n2=$end_cid",'ƒа')) : '&nbsp;',
-!      $PR{111} && $alive eq 'good'? &div('nav3',&ahref("$scrpt&act=cards_export_cvs&n1=$start_cid&n2=$end_cid",'—охранить')) : '&nbsp;');
+!      $PR{111} && $alive eq 'good'? &div('nav3',&ahref("$scrpt&act=cards_export_csv&n1=$start_cid&n2=$end_cid",'—охранить')) : '&nbsp;');
   }
   
   
@@ -51,11 +51,11 @@
      &form('!'=>1,'act'=>'cards_move_sel','<br>'.
 *************** sub cards_set_good
 *** 562,567 ****
---- 564,591 ----
+--- 564,593 ----
    &OkMess(" арточки в количестве $rows штук диапазона $n1 .. $n2 переведены в состо€ние $s.");
   }
   
-+ sub cards_export_cvs
++ sub cards_export_csv
 + {
 +  $n1=int $F{n1};
 +  $n2=int $F{n2};
@@ -66,10 +66,12 @@
 +  $sth=&sql($dbh,"SELECT `cid` , `cod` , `money` , FROM_UNIXTIME( `stime` , '%d.%m.%Y' ) as stime, FROM_UNIXTIME( `etime` , '%d.%m.%Y' ) as etime FROM `cards` WHERE r='$Admin_id' AND alive='good' AND cid>=$n1 AND cid<=$n2");
 +  while ($p=$sth->fetchrow_hashref)
 +   {
-+    #генерируем р€ды CSV дл€ последующего экспорта например в MS Access
++    #«акомментировать строку ниже, если нужно деньги привести к западному типу разделител€ целой и дробной части
++    $p->{money} =~ tr/./,/;
++    #√енерируем р€ды CSV дл€ последующего экспорта например в MS Access
 +    $body.="\"$p->{cid}\";\"$p->{cod}\";\"$p->{money}\";\"$p->{stime}\";\"$p->{etime}\"\n";
 +   }
-+   #выводим данные в браузер на сохранение
++   #¬ыводим данные в браузер на сохранение
 +   $OUT="Content-Type: application/octet-stream\n".
 +   "Content-Disposition: attachment; filename=nocards.txt\n\n".
 +   "$body";
