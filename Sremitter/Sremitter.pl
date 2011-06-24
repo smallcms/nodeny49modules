@@ -67,7 +67,18 @@ sub RMTR_main
  &Error('Использованы недопостимые символы.',$EOUT) if $RMTR_post2!~/^[0-9]+$/;
 
  #проверка на остаточный минимум после перевода
- &Error('Ваш баланс после перевода суммы получателю не должен быть меньше '.$RMTR_mnbap.' '.$gr,$EOUT) if $U{$Mid}{balance}-$RMTR_post2 < $RMTR_mnbap && $RMTR_mnbap !=0;
+ #необходимо исключить временные платежи, чтобы не было злоупотреблений
+ $temp_money=0;
+ #начинаем суммировать все временные платежи (если есть)
+ $sth2=&sql($dbh,"SELECT * FROM pays WHERE mid=$Mid AND type=20",'Есть ли временные платежи?');
+   while ($p2=$sth2->fetchrow_hashref)
+     {
+     $h=$p2->{cash};
+     $temp_money+=$h;
+  }
+ #узнаем реальный баланс клиента без временных платежей
+ $RMTR_chkd_balance=$U{$Mid}{balance}-$temp_money;
+ &Error('Ваш баланс после перевода суммы получателю не должен быть меньше '.$RMTR_mnbap.' '.$gr,$EOUT) if $RMTR_chkd_balance-$RMTR_post2 < $RMTR_mnbap && $RMTR_mnbap !=0;
  #проверка на минимальный платёж
  &Error('Сумма перевода указана меньше минимально допустимой.',$EOUT) if $RMTR_post2 < $RMTR_minsrc+$RMTR_price && $RMTR_minsrc != 0;
  #проверка на максимальный платёж
