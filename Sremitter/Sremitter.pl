@@ -42,7 +42,7 @@ sub RMTR_main
  &Error('Вы не можете воспользоваться данной услугой. Обратитесь к системному администратору') if $RMTR_DenyToUseMod == 1;
 
  #проверим количество использований услуги за последние RMTR_ntrvlsrc дней
- $RMTR_sql1=&sql_select_line($dbh,"SELECT COUNT(*) FROM pays WHERE `mid`=$Mid AND `type` =10 AND `category` =105 AND `reason` = 'За услугу Поделиться балансом' AND `coment` ='За услугу Поделиться балансом' AND `time` > UNIX_TIMESTAMP( SUBDATE( NOW( ) , $RMTR_ntrvlsrc ) )");
+ $RMTR_sql1=&sql_select_line($dbh,"SELECT COUNT(*) FROM pays WHERE `mid`=$Mid AND `type` =10 AND `category` =105 AND `reason` LIKE 'За услугу Поделиться балансом%' AND `coment` LIKE 'За услугу Поделиться балансом%' AND `time` > UNIX_TIMESTAMP( SUBDATE( NOW( ) , $RMTR_ntrvlsrc ) )");
  &Error('проблема с БД.') unless $RMTR_sql1;
  #считаем количество использований услуги
  $RMTR_count1=$RMTR_sql1->{'COUNT(*)'};
@@ -110,15 +110,15 @@ sub RMTR_main
  &Error('Вы указали несуществующий персональный платежный код получателя.') if $RMTR_count1 != 1;
 
  #получаем сумму платежей-переводов учётной записи по персональному платежному коду
- $RMTR_sql2=&sql_select_line($dbh,"SELECT SUM(`cash`) AS `cash` FROM `pays` WHERE `mid`=$RMTR_post1id AND `type` =10 AND `category` =600 AND `reason` = 'За услугу Поделиться балансом' AND `coment` ='За услугу Поделиться балансом' AND `time` > UNIX_TIMESTAMP( SUBDATE( NOW( ) , $RMTR_ntrvldst ) )");
+ $RMTR_sql2=&sql_select_line($dbh,"SELECT SUM(`cash`) AS `cash` FROM `pays` WHERE `mid`=$RMTR_post1id AND `type` =10 AND `category` =6 AND `reason` LIKE 'За услугу Поделиться балансом%' AND `coment` LIKE 'За услугу Поделиться балансом%' AND `time` > UNIX_TIMESTAMP( SUBDATE( NOW( ) , $RMTR_ntrvldst ) )");
  &Error('проблема с БД.') unless $RMTR_sql2;
  #забираем значение суммы
  $RMTR_maxdst_sql=$RMTR_sql2->{cash};
  #выводим сообщение пользователю, что получатель уже набил карманы доверху
  &Error('На балансе получателя уже имеется максимально возможная сумма.') if $RMTR_maxdst_sql >= $RMTR_maxdst && $RMTR_maxdst !=0;
 
- #получаем наличные платежи учётной записи по персональному платежному коду (кроме ремиттерных переводов)
- $RMTR_sql3=&sql_select_line($dbh,"SELECT COUNT(*) FROM `pays` WHERE `mid`=$RMTR_post1id AND `cash`>0 AND `type` ='10' AND `category` ='600' AND `reason` !='За услугу Поделиться балансом' AND `coment` !='За услугу Поделиться балансом' AND `time`>UNIX_TIMESTAMP( SUBDATE( NOW( ) , $RMTR_oldpay))");
+ #получаем наличные платежи учётной записи по персональному платежному коду
+ $RMTR_sql3=&sql_select_line($dbh,"SELECT COUNT(*) FROM `pays` WHERE `mid`=$RMTR_post1id AND `cash`>0 AND `type` ='10' AND `category` ='600' AND `time`>UNIX_TIMESTAMP( SUBDATE( NOW( ) , $RMTR_oldpay))");
  &Error('проблема с БД.') unless $RMTR_sql3;
  #забираем значение суммы
  $RMTR_oldpay_sql=$RMTR_sql3->{'COUNT(*)'};
@@ -143,13 +143,13 @@ sub RMTR_main
       "VALUES($Mid,-$RMTR_post2,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
 
  $rows=&sql_do($dbh,$sql);
- &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись списания) $RMTR_post2 $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
+ &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись списания) $RMTR_post2 $gr для ППК $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
 
  #начинаем формировать внесение в таблицу платежей (списание)
  $rows=&sql_do($dbh,"UPDATE users SET balance=balance-".$RMTR_post2." WHERE id=$Mid LIMIT 1");
  if ($rows<1)
    {
-    &ToLog("! mid $Mid использовал услугу Поделиться балансом $RMTR_post2 $gr для ппк $RMTR_post1, но после внесения платежа в таблицу платежей произошла ошибка изменения баланса клиента");
+    &ToLog("! mid $Mid использовал услугу Поделиться балансом $RMTR_post2 $gr для ППК $RMTR_post1, но после внесения платежа в таблицу платежей произошла ошибка изменения баланса клиента");
     &Error("Произошла ошибка перевода суммы. Обратитесь к администрации.",$EOUT);
    }
 
@@ -174,7 +174,7 @@ sub RMTR_main
          "VALUES($RMTR_post1id,-$RMTR_price,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
 
      $rows=&sql_do($dbh,$sql);
-     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_price $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
+     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_price $gr для ППК $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
    }
 
  #если указано списывать проценты от суммы за услугу
@@ -185,21 +185,21 @@ sub RMTR_main
          "VALUES($RMTR_post1id,-$RMTR_prc_tmp,10,'y',105,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
 
      $rows=&sql_do($dbh,$sql);
-     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_prc_tmp $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
+     &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_prc_tmp $gr для ППК $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
    }
 
  #зачисляем сумму в размере RMTR_post2 за услугу Поделиться балансом клиенту с id=RMTR_post1id
  $sql="INSERT INTO pays (mid,cash,type,bonus,category,admin_id,admin_ip,reason,coment,time) ".
-      "VALUES($RMTR_post1id,$RMTR_post2,10,'',600,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом','За услугу Поделиться балансом',$t)";
+      "VALUES($RMTR_post1id,$RMTR_post2,10,'y',6,$Adm{id},INET_ATON('$RealIp'),'За услугу Поделиться балансом (отправитель:$U{$Mid}{fio} ip:$U{$Mid}{ip})','За услугу Поделиться балансом',$t)";
 
  $rows=&sql_do($dbh,$sql);
- &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_post2 $gr для ппк $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
+ &ToLog("! mid $Mid использовал услугу Поделиться балансом (запись зачисления) $RMTR_post2 $gr для ППК $RMTR_post1, но произошла ошибка внесения платежа в таблицу платежей.") if $rows<1;
 
  #начинаем формировать внесение в таблицу платежей (зачисление)
  $rows=&sql_do($dbh,"UPDATE users SET balance=balance+".$RMTR_post2_tmp." WHERE id=$RMTR_post1id LIMIT 1");
  if ($rows<1)
    {
-    &ToLog("! mid $Mid использовал услугу Поделиться балансом $RMTR_post2_tmp $gr для ппк $RMTR_post1, но после внесения платежа в таблицу платежей произошла ошибка изменения баланса клиента");
+    &ToLog("! mid $Mid использовал услугу Поделиться балансом $RMTR_post2_tmp $gr для ППК $RMTR_post1, но после внесения платежа в таблицу платежей произошла ошибка изменения баланса клиента");
     &Error("Произошла ошибка перевода суммы. Обратитесь к администрации.",$EOUT);
    }
  
