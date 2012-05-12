@@ -87,7 +87,7 @@ $(function () {
                 type: \'area\'
             },
             title: {
-                text: \''.$head.'\'
+                text: \''.&Filtr_all($head).'\'
             },
             xAxis: {
                 title: {
